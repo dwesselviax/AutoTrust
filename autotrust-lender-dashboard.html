@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutoTrust Dealer Alliance — Lender Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-primary: #0D0D0D;
+  --bg-surface: #1A1A1A;
+  --bg-surface-2: #222222;
+  --bg-surface-3: #2A2A2A;
+  --accent: #CCFF00;
+  --accent-dim: rgba(204,255,0,0.15);
+  --accent-mid: rgba(204,255,0,0.3);
+  --text-primary: #FFFFFF;
+  --text-secondary: #A0A0A0;
+  --text-tertiary: #666666;
+  --border: #333333;
+  --positive: #4ADE80;
+  --negative: #F87171;
+  --warning: #FBBF24;
+}
+[data-theme="light"] {
+  --bg-primary: #F8F7F6;
+  --bg-surface: #FFFFFF;
+  --bg-surface-2: #F0F0F0;
+  --bg-surface-3: #E5E5E5;
+  --accent: #5A7200;
+  --accent-dim: rgba(90,114,0,0.08);
+  --accent-mid: rgba(90,114,0,0.18);
+  --text-primary: #1E1E1E;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --border: #E0E0E0;
+  --positive: #16A34A;
+  --negative: #DC2626;
+  --warning: #D97706;
+}
+html { font-size: 16px; color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; transition: background 0.3s ease, color 0.3s ease; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+select { background: var(--bg-surface-2); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-family: Inter; font-size: 0.85rem; cursor: pointer; outline: none; }
+select:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const REPORT_PERIOD = "January 2026";
+const PREV_PERIOD = "December 2025";
+const DEALER_GROUP = "DEALER Motor Group";
+const TOTAL_RETAIL_JAN = 982;
+const TOTAL_RETAIL_DEC = 996;
+
+const DEALER_NAMES = ["Dealer #1","Dealer #2","Dealer #3","Dealer #4","Dealer #5","Dealer #6","Dealer #7","Dealer #8","Dealer #9","Dealer #10","Dealer #11","Dealer #12","Dealer #13"];
+
+const GROUP_SUMMARY = {
+  jan: { contracts: 31, financed: 772331, pctRetail: 0.0316 },
+  dec: { contracts: 59, financed: 1788032, pctRetail: 0.0592 }
+};
+
+const BANK_DATA = [
+  {
+    name: "Chase",
+    jan: { contracts: 6, financed: 199127, pctRetail: 0.0061 },
+    dec: { contracts: 7, financed: 246006, pctRetail: 0.0070 },
+    tier: { current: "$0-$17MM", currentPayout: 128, nextTier: "$17MM-$25MM", nextPayout: 152, annualProjected: 21056439, neededForNext: 3943561 },
+    dealers: [
+      { name: "Dealer #3", jan: { c: 1, v: 36668 }, dec: { c: 3, v: 104621 } },
+      { name: "Dealer #4", jan: { c: 1, v: 25684 }, dec: { c: 1, v: 39636 } },
+      { name: "Dealer #5", jan: { c: 0, v: 0 }, dec: { c: 1, v: 19661 } },
+      { name: "Dealer #7", jan: { c: 2, v: 50323 }, dec: { c: 2, v: 82088 } },
+      { name: "Dealer #13", jan: { c: 2, v: 86452 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #1", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #2", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #6", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #8", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #9", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #10", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #11", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #12", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+    ]
+  },
+  {
+    name: "Bank of America",
+    jan: { contracts: 17, financed: 541207, pctRetail: 0.0173 },
+    dec: { contracts: 32, financed: 1070285, pctRetail: 0.0321 },
+    tier: { current: "$0-$6MM", currentPayout: 115.50, nextTier: "$6MM-$8.9MM", nextPayout: 143.61, annualProjected: 21056439, neededForNext: 8943561 },
+    dealers: [
+      { name: "Dealer #1", jan: { c: 5, v: 236090 }, dec: { c: 4, v: 194731 } },
+      { name: "Dealer #3", jan: { c: 3, v: 86900 }, dec: { c: 4, v: 139162 } },
+      { name: "Dealer #4", jan: { c: 0, v: 0 }, dec: { c: 3, v: 82389 } },
+      { name: "Dealer #6", jan: { c: 1, v: 15419 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #8", jan: { c: 0, v: 0 }, dec: { c: 1, v: 19214 } },
+      { name: "Dealer #9", jan: { c: 1, v: 17559 }, dec: { c: 7, v: 171843 } },
+      { name: "Dealer #10", jan: { c: 1, v: 19465 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #11", jan: { c: 4, v: 109231 }, dec: { c: 5, v: 128982 } },
+      { name: "Dealer #12", jan: { c: 2, v: 56543 }, dec: { c: 8, v: 333965 } },
+      { name: "Dealer #2", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #5", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #7", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #13", jan: { c: 0, v: 0 }, dec: { c: 0, v: 0 } },
+    ]
+  },
+  {
+    name: "Santander",
+    jan: { contracts: 25, financed: 573204, pctRetail: 0.0255 },
+    dec: { contracts: 20, financed: 471741, pctRetail: 0.0201 },
+    tier: { current: "Flat Rate", currentPayout: 80, nextTier: "n/a", nextPayout: 80 },
+    dealers: [
+      { name: "Dealer #1", jan: { c: 1, v: 8246 }, dec: { c: 5, v: 202573 } },
+      { name: "Dealer #2", jan: { c: 1, v: 25505 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #3", jan: { c: 2, v: 53720 }, dec: { c: 1, v: 32628 } },
+      { name: "Dealer #4", jan: { c: 2, v: 61358 }, dec: { c: 1, v: 8802 } },
+      { name: "Dealer #5", jan: { c: 1, v: 25431 }, dec: { c: 3, v: 52522 } },
+      { name: "Dealer #6", jan: { c: 3, v: 59070 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #7", jan: { c: 4, v: 95792 }, dec: { c: 2, v: 41186 } },
+      { name: "Dealer #8", jan: { c: 0, v: 0 }, dec: { c: 3, v: 33738 } },
+      { name: "Dealer #9", jan: { c: 2, v: 37858 }, dec: { c: 1, v: 22459 } },
+      { name: "Dealer #10", jan: { c: 3, v: 54885 }, dec: { c: 2, v: 37456 } },
+      { name: "Dealer #11", jan: { c: 2, v: 44587 }, dec: { c: 0, v: 0 } },
+      { name: "Dealer #12", jan: { c: 2, v: 48200 }, dec: { c: 1, v: 21854 } },
+      { name: "Dealer #13", jan: { c: 2, v: 58553 }, dec: { c: 1, v: 18523 } },
+    ]
+  }
+];
+
+const FINANCED_DEALS_BY_BANK = [
+  { name: "Ally Financial", units: 32, volume: 1052438, reserve: 48177, avgReserve: 1506, avgTerm: 72.3, avgSellRate: 0.1151, avgSpread: 1.99, avgFiPru: 3064, totalFi: 98036 },
+  { name: "Bank of America (N.A.)", units: 9, volume: 345321, reserve: 12959, avgReserve: 1440, avgTerm: 66.8, avgSellRate: 0.0600, avgSpread: 1.50, avgFiPru: 1440, totalFi: 12959 },
+  { name: "Bank of America", units: 6, volume: 139343, reserve: 3691, avgReserve: 615, avgTerm: 65.0, avgSellRate: 0.0665, avgSpread: 2.87, avgFiPru: 1409, totalFi: 8453 },
+  { name: "Chase Auto", units: 1, volume: 36668, reserve: 1314, avgReserve: 1314, avgTerm: 75.0, avgSellRate: 0.0659, avgSpread: 2.50, avgFiPru: 1314, totalFi: 1314 },
+  { name: "Santander", units: 25, volume: 573204, reserve: 0, avgReserve: 0, avgTerm: 0, avgSellRate: 0, avgSpread: 0, avgFiPru: 0, totalFi: 0 },
+  { name: "ACAR Leasing", units: 1, volume: 35438, reserve: 1516, avgReserve: 1516, avgTerm: 36.0, avgSellRate: 0, avgSpread: 0, avgFiPru: 1516, totalFi: 1516 },
+  { name: "Cash", units: 148, volume: 0, reserve: 0, avgReserve: 0, avgTerm: 0, avgSellRate: 0, avgSpread: 0, avgFiPru: 0, totalFi: 0 },
+];
+
+// ─── TIER GRIDS (from Lender Program tab) ────────────────────────────────────
+const CHASE_TIERS = [
+  { label: "$0-$17MM", threshold: 17000000, payout: 128, dealerShare: 112, atsShare: 28 },
+  { label: "$17MM-$25MM", threshold: 25000000, payout: 152, dealerShare: 128, atsShare: 32 },
+  { label: "$25MM-$33MM", threshold: 33000000, payout: 190, dealerShare: 152, atsShare: 38 },
+  { label: "$33MM-$42MM", threshold: 42000000, payout: 210, dealerShare: 168, atsShare: 42 },
+];
+
+const BOFA_TIERS = [
+  { label: "$0-$6MM", threshold: 6000000, bps: 0.0024, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$6MM-$8.9MM", threshold: 8900000, bps: 0.0027, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$9MM-$17.9MM", threshold: 17900000, bps: 0.0030, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$18MM-$29.9MM", threshold: 29900000, bps: 0.0033, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$30MM-$39.9MM", threshold: 39900000, bps: 0.0036, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$40MM-$44.9MM", threshold: 44900000, bps: 0.0039, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$45MM-$49.9MM", threshold: 49900000, bps: 0.0042, dealerShare: 0.8, atsShare: 0.2 },
+  { label: "$50MM+", threshold: Infinity, bps: 0.0045, dealerShare: 0.8, atsShare: 0.2 },
+];
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+const fmt = (n) => n != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) : '$0';
+const fmtK = (n) => n >= 1000000 ? `$${(n/1000000).toFixed(1)}M` : n >= 1000 ? `$${(n/1000).toFixed(0)}K` : fmt(n);
+const fmtPct = (n) => `${(n * 100).toFixed(1)}%`;
+const fmtNum = (n) => new Intl.NumberFormat('en-US').format(n);
+const delta = (curr, prev) => prev === 0 ? (curr > 0 ? 100 : 0) : ((curr - prev) / prev * 100);
+
+function getDealerData(dealerName) {
+  return BANK_DATA.map(bank => {
+    const d = bank.dealers.find(dd => dd.name === dealerName);
+    return { bank: bank.name, jan: d?.jan || { c: 0, v: 0 }, dec: d?.dec || { c: 0, v: 0 }, tier: bank.tier };
+  });
+}
+
+function getGroupAvg(field) {
+  const allDealerTotals = DEALER_NAMES.map(name => {
+    return BANK_DATA.reduce((s, b) => {
+      const d = b.dealers.find(dd => dd.name === name);
+      return s + (d?.[field]?.c || 0);
+    }, 0);
+  });
+  return allDealerTotals.reduce((s,v) => s + v, 0) / DEALER_NAMES.length;
+}
+
+// ─── ICONS (inline SVG) ─────────────────────────────────────────────────────
+const IconArrowUp = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>;
+const IconArrowDown = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>;
+const IconAlert = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+const IconChart = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>;
+const IconUsers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const IconDollar = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+const IconTarget = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+const IconTrendUp = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+const IconWallet = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="5" width="22" height="16" rx="2"/><path d="M1 10h22"/><circle cx="18" cy="15" r="1"/></svg>;
+const IconStore = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const IconLayers = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>;
+const IconSun = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
+const IconMoon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
+
+// Chart colors that must be literal (not CSS vars) for Chart.js canvas rendering
+function chartC(theme) {
+  return theme === 'light'
+    ? { tick: '#666666', tickDim: '#999999', grid: '#E5E5E5', legend: '#555555' }
+    : { tick: '#A0A0A0', tickDim: '#666', grid: '#222', legend: '#A0A0A0' };
+}
+
+// ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
+function DeltaBadge({ current, previous, suffix = "" }) {
+  const d = delta(current, previous);
+  const isPos = d >= 0;
+  const color = isPos ? "var(--positive)" : "var(--negative)";
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '0.75rem', fontWeight: 600, color }}>
+      {isPos ? <IconArrowUp /> : <IconArrowDown />}
+      {Math.abs(d).toFixed(1)}%{suffix}
+    </span>
+  );
+}
+
+function KPICard({ icon, label, value, subValue, current, previous, accent }) {
+  return (
+    <div style={{ background: accent ? 'linear-gradient(135deg, rgba(204,255,0,0.12), rgba(204,255,0,0.04))' : 'var(--bg-surface)', borderRadius: '12px', padding: '20px 24px', border: accent ? '1px solid rgba(204,255,0,0.3)' : '1px solid var(--border)', flex: '1 1 200px', minWidth: '200px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ color: 'var(--accent)' }}>{icon}</div>
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.1, marginBottom: '4px' }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {subValue && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{subValue}</span>}
+        {current != null && previous != null && <DeltaBadge current={current} previous={previous} suffix=" MoM" />}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ children, subtitle }) {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <h2 style={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.01em' }}>{children}</h2>
+      {subtitle && <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{subtitle}</p>}
+    </div>
+  );
+}
+
+function ChartCanvas({ id, initChart, deps = [] }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.destroy();
+    const ctx = canvasRef.current.getContext('2d');
+    chartRef.current = initChart(ctx);
+    return () => { if (chartRef.current) chartRef.current.destroy(); };
+  }, deps);
+  return <canvas ref={canvasRef} id={id} />;
+}
+
+const thStyle = { padding: '10px 12px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' };
+const tdStyle = { padding: '10px 12px', color: 'var(--text-primary)' };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: MY DEALERSHIP
+// ═══════════════════════════════════════════════════════════════════════════════
+function MyDealershipView({ selectedDealer, onDealerChange, theme }) {
+  const cc = chartC(theme);
+  const data = getDealerData(selectedDealer);
+  const totalJanC = data.reduce((s, d) => s + d.jan.c, 0);
+  const totalDecC = data.reduce((s, d) => s + d.dec.c, 0);
+  const totalJanV = data.reduce((s, d) => s + d.jan.v, 0);
+  const totalDecV = data.reduce((s, d) => s + d.dec.v, 0);
+  const groupAvgContracts = getGroupAvg('jan');
+
+  // Payout estimate for this dealer
+  const janPayout = data.reduce((s, d) => s + (d.jan.c * d.tier.currentPayout), 0);
+
+  // Action items
+  const actions = [];
+  data.forEach(d => {
+    if (d.jan.c === 0 && d.dec.c > 0) {
+      actions.push({ type: 'dropped', msg: `${d.bank}: Dropped from ${d.dec.c} contracts to 0 this month`, severity: 'negative' });
+    } else if (d.jan.c === 0 && d.dec.c === 0) {
+      actions.push({ type: 'inactive', msg: `${d.bank}: No activity — opportunity to start sending deals`, severity: 'warning' });
+    } else if (d.jan.v > 0 && d.dec.v > 0 && d.jan.v < d.dec.v * 0.5) {
+      actions.push({ type: 'declining', msg: `${d.bank}: Volume down ${Math.round((1 - d.jan.v / d.dec.v) * 100)}% (${fmtK(d.dec.v)} to ${fmtK(d.jan.v)})`, severity: 'negative' });
+    }
+  });
+  // Positive callouts
+  data.forEach(d => {
+    if (d.jan.c > 0 && d.dec.c === 0) {
+      actions.push({ type: 'new', msg: `${d.bank}: New activity this month — ${d.jan.c} contracts`, severity: 'positive' });
+    } else if (d.jan.v > 0 && d.dec.v > 0 && d.jan.v > d.dec.v * 1.3) {
+      actions.push({ type: 'growing', msg: `${d.bank}: Volume up ${Math.round((d.jan.v / d.dec.v - 1) * 100)}% — strong momentum`, severity: 'positive' });
+    }
+  });
+
+  return (
+    <div>
+      {/* Dealer Selector */}
+      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Viewing:</span>
+        <select value={selectedDealer} onChange={e => onDealerChange(e.target.value)}>
+          {DEALER_NAMES.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <KPICard icon={<IconChart />} label="Your Contracts" value={fmtNum(totalJanC)} subValue={`prev: ${fmtNum(totalDecC)}`} current={totalJanC} previous={totalDecC} />
+        <KPICard icon={<IconDollar />} label="Your Volume" value={fmtK(totalJanV)} subValue={`prev: ${fmtK(totalDecV)}`} current={totalJanV} previous={totalDecV} />
+        <KPICard icon={<IconWallet />} label="Est. Payout This Month" value={fmt(janPayout)} accent={true} />
+        <KPICard icon={<IconUsers />} label="vs. Group Average" value={`${totalJanC > groupAvgContracts ? '+' : ''}${(totalJanC - groupAvgContracts).toFixed(1)}`} subValue={`group avg: ${groupAvgContracts.toFixed(1)} contracts`} />
+      </div>
+
+      {/* Bank Breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle>Your Volume by Lender</SectionTitle>
+          <div style={{ height: '240px' }}>
+            <ChartCanvas id={`myDealer-vol-${selectedDealer}-${theme}`} deps={[selectedDealer, theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: data.map(d => d.bank),
+                datasets: [
+                  { label: 'Jan 2026', data: data.map(d => d.jan.v), backgroundColor: '#CCFF00', borderRadius: 4 },
+                  { label: 'Dec 2025', data: data.map(d => d.dec.v), backgroundColor: 'rgba(204,255,0,0.25)', borderRadius: 4 },
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { color: cc.legend, font: { family: 'Inter', size: 11 } } } },
+                scales: {
+                  x: { ticks: { color: cc.tick, font: { family: 'Inter', size: 11 } }, grid: { display: false } },
+                  y: { ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmtK(v) }, grid: { color: cc.grid } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+
+        {/* Detail Table */}
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle>Lender Detail</SectionTitle>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={thStyle}>Lender</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Jan Contracts</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Jan Volume</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Payout/Contract</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Est. Earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(d => (
+                <tr key={d.bank} style={{ borderBottom: '1px solid rgba(51,51,51,0.5)' }}>
+                  <td style={{...tdStyle, fontWeight: 600}}>{d.bank}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{d.jan.c || '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{d.jan.v > 0 ? fmtK(d.jan.v) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{fmt(d.tier.currentPayout)}</td>
+                  <td style={{...tdStyle, textAlign: 'right', color: d.jan.c > 0 ? 'var(--accent)' : 'var(--text-tertiary)', fontWeight: 600}}>
+                    {d.jan.c > 0 ? fmt(d.jan.c * d.tier.currentPayout) : '—'}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: '2px solid var(--border)' }}>
+                <td style={{...tdStyle, fontWeight: 700}}>Total</td>
+                <td style={{...tdStyle, textAlign: 'right', fontWeight: 700}}>{totalJanC}</td>
+                <td style={{...tdStyle, textAlign: 'right', fontWeight: 700}}>{fmtK(totalJanV)}</td>
+                <td style={tdStyle}></td>
+                <td style={{...tdStyle, textAlign: 'right', fontWeight: 700, color: 'var(--accent)'}}>{fmt(janPayout)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Action Items */}
+      {actions.length > 0 && (
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Based on your month-over-month activity">Actions & Insights</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {actions.map((a, i) => {
+              const colors = { negative: { bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)', text: 'var(--negative)' }, warning: { bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.2)', text: 'var(--warning)' }, positive: { bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.2)', text: 'var(--positive)' } };
+              const c = colors[a.severity];
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: c.bg, borderRadius: '8px', border: `1px solid ${c.border}` }}>
+                  <span style={{ color: c.text }}>{a.severity === 'positive' ? <IconTrendUp /> : <IconAlert />}</span>
+                  <span style={{ fontSize: '0.85rem' }}>{a.msg}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: YOUR MONEY
+// ═══════════════════════════════════════════════════════════════════════════════
+function YourMoneyView({ theme }) {
+  // Current monthly earnings by bank at current tier
+  const bankEarnings = BANK_DATA.map(bank => {
+    const earned = bank.jan.contracts * bank.tier.currentPayout;
+    const nextEarned = bank.tier.nextTier !== "n/a" ? bank.jan.contracts * bank.tier.nextPayout : earned;
+    const annualProjectedContracts = bank.jan.contracts * 12;
+    const annualEarnedCurrent = annualProjectedContracts * bank.tier.currentPayout;
+    const annualEarnedNext = bank.tier.nextTier !== "n/a" ? annualProjectedContracts * bank.tier.nextPayout : annualEarnedCurrent;
+    return {
+      bank: bank.name,
+      contracts: bank.jan.contracts,
+      currentTier: bank.tier.current,
+      currentPayout: bank.tier.currentPayout,
+      nextTier: bank.tier.nextTier,
+      nextPayout: bank.tier.nextPayout,
+      earnedThisMonth: earned,
+      couldEarnThisMonth: nextEarned,
+      leftOnTable: nextEarned - earned,
+      annualCurrent: annualEarnedCurrent,
+      annualNext: annualEarnedNext,
+      annualDelta: annualEarnedNext - annualEarnedCurrent,
+    };
+  });
+
+  const totalEarned = bankEarnings.reduce((s, b) => s + b.earnedThisMonth, 0);
+  const totalCould = bankEarnings.reduce((s, b) => s + b.couldEarnThisMonth, 0);
+  const totalLeftOnTable = totalCould - totalEarned;
+  const totalAnnualCurrent = bankEarnings.reduce((s, b) => s + b.annualCurrent, 0);
+  const totalAnnualNext = bankEarnings.reduce((s, b) => s + b.annualNext, 0);
+
+  return (
+    <div>
+      {/* Big Money KPIs */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <KPICard icon={<IconWallet />} label="Earned This Month" value={fmt(totalEarned)} accent={true} subValue="at current tier rates" />
+        <KPICard icon={<IconTarget />} label="At Next Tier" value={fmt(totalCould)} subValue="if all banks hit next tier" />
+        <KPICard icon={<IconTrendUp />} label="Opportunity Gap" value={fmt(totalLeftOnTable)} subValue="additional per month at next tier" />
+        <KPICard icon={<IconDollar />} label="Annual Projection" value={fmtK(totalAnnualCurrent)} subValue={`could be ${fmtK(totalAnnualNext)}`} />
+      </div>
+
+      {/* Per-Bank Earnings Breakdown */}
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '24px' }}>
+        <SectionTitle subtitle="What you earned vs. what you'd earn at the next tier">Earnings by Lender</SectionTitle>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {bankEarnings.map(b => (
+            <div key={b.bank} style={{ background: 'var(--bg-surface-2)', borderRadius: '10px', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '2px' }}>{b.bank}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{b.contracts} contracts this month at {fmt(b.currentPayout)}/contract</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent)' }}>{fmt(b.earnedThisMonth)}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>earned this month</div>
+                </div>
+              </div>
+
+              {b.nextTier !== "n/a" && (
+                <div style={{ background: 'var(--bg-surface-3)', borderRadius: '8px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                      At <strong style={{ color: 'var(--text-primary)' }}>{b.nextTier}</strong> tier ({fmt(b.nextPayout)}/contract):
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Same {b.contracts} contracts would pay <strong style={{ color: 'var(--accent)' }}>{fmt(b.couldEarnThisMonth)}</strong>
+                    </div>
+                  </div>
+                  {b.leftOnTable > 0 && (
+                    <div style={{ background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: '8px', padding: '8px 14px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent)' }}>+{fmt(b.leftOnTable)}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>per month</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {b.nextTier === "n/a" && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Flat-rate program — no tiers</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tier Grids Reference */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Per-contract payout by volume tier">Chase Incentive Grid</SectionTitle>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={thStyle}>Volume Tier</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Incentive</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Dealer (80%)</th>
+                <th style={{...thStyle, textAlign: 'right'}}>ATS (20%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CHASE_TIERS.map((t, i) => {
+                const isCurrent = BANK_DATA[0].tier.current === t.label;
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(51,51,51,0.5)', background: isCurrent ? 'rgba(204,255,0,0.06)' : 'transparent' }}>
+                    <td style={{...tdStyle, fontWeight: isCurrent ? 700 : 400}}>
+                      {isCurrent && <span style={{ color: 'var(--accent)', marginRight: '6px' }}>&#9654;</span>}
+                      {t.label}
+                    </td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>{fmt(t.payout)}</td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>{fmt(t.dealerShare)}</td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>{fmt(t.atsShare)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="BPS-based commission by volume tier">BofA Incentive Grid</SectionTitle>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={thStyle}>Volume Tier</th>
+                <th style={{...thStyle, textAlign: 'right'}}>BPS</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Est. per $35K contract</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BOFA_TIERS.map((t, i) => {
+                const isCurrent = BANK_DATA[1].tier.current === t.label;
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(51,51,51,0.5)', background: isCurrent ? 'rgba(204,255,0,0.06)' : 'transparent' }}>
+                    <td style={{...tdStyle, fontWeight: isCurrent ? 700 : 400}}>
+                      {isCurrent && <span style={{ color: 'var(--accent)', marginRight: '6px' }}>&#9654;</span>}
+                      {t.label}
+                    </td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>{(t.bps * 10000).toFixed(0)} bps</td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>{fmt(Math.round(t.bps * 35000))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: F&I ECONOMICS
+// ═══════════════════════════════════════════════════════════════════════════════
+function FIEconomicsView({ theme }) {
+  const cc = chartC(theme);
+  const withData = FINANCED_DEALS_BY_BANK.filter(b => b.avgReserve > 0);
+
+  return (
+    <div>
+      {/* Reserve Per Unit Comparison */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        {withData.sort((a,b) => b.avgReserve - a.avgReserve).slice(0, 4).map(b => (
+          <KPICard key={b.name} icon={<IconLayers />} label={b.name} value={fmt(b.avgReserve)} subValue={`${b.units} units / ${fmtPct(b.avgSellRate)} sell rate`} />
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        {/* Reserve per Unit Chart */}
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Average finance reserve earned per unit by lender">Reserve per Unit</SectionTitle>
+          <div style={{ height: '300px' }}>
+            <ChartCanvas id={`reservePerUnit-${theme}`} deps={[theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: withData.map(b => b.name),
+                datasets: [{ label: 'Avg Reserve/Unit', data: withData.map(b => b.avgReserve), backgroundColor: '#CCFF00', borderRadius: 4 }]
+              },
+              options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmt(v) }, grid: { color: cc.grid } },
+                  y: { ticks: { color: cc.tick, font: { family: 'Inter', size: 11 } }, grid: { display: false } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+
+        {/* Volume vs Reserve Scatter */}
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Where is the best margin per dollar financed?">Volume vs. Reserve per Unit</SectionTitle>
+          <div style={{ height: '300px' }}>
+            <ChartCanvas id={`volVsReserve-${theme}`} deps={[theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'bubble',
+              data: {
+                datasets: withData.map((b, i) => ({
+                  label: b.name,
+                  data: [{ x: b.volume, y: b.avgReserve, r: Math.max(b.units * 1.2, 6) }],
+                  backgroundColor: ['#CCFF00', '#00D4FF', '#FF6B6B', '#C084FC', '#FB923C', '#34D399'][i % 6] + '99',
+                  borderColor: ['#CCFF00', '#00D4FF', '#FF6B6B', '#C084FC', '#FB923C', '#34D399'][i % 6],
+                  borderWidth: 1,
+                }))
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { color: cc.legend, font: { family: 'Inter', size: 10 } } } },
+                scales: {
+                  x: { title: { display: true, text: 'Total Volume', color: cc.tickDim, font: { family: 'Inter', size: 11 } }, ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmtK(v) }, grid: { color: cc.grid } },
+                  y: { title: { display: true, text: 'Avg Reserve/Unit', color: cc.tickDim, font: { family: 'Inter', size: 11 } }, ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmt(v) }, grid: { color: cc.grid } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+      </div>
+
+      {/* Full Economics Table */}
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '24px', overflow: 'auto' }}>
+        <SectionTitle subtitle="Side-by-side lender economics — where is the money?">Per-Deal Economics by Lender</SectionTitle>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+              <th style={thStyle}>Lender</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Units</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg Deal Size</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg Reserve/Unit</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg Sell Rate</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg Rate Spread</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg Term (mo)</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Avg F&I PRU</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Total F&I Income</th>
+            </tr>
+          </thead>
+          <tbody>
+            {FINANCED_DEALS_BY_BANK.filter(b => b.volume > 0).sort((a,b) => b.avgFiPru - a.avgFiPru).map(b => {
+              const bestReserve = Math.max(...withData.map(x => x.avgReserve));
+              const isBestReserve = b.avgReserve === bestReserve;
+              return (
+                <tr key={b.name} style={{ borderBottom: '1px solid rgba(51,51,51,0.5)' }}>
+                  <td style={{...tdStyle, fontWeight: 600}}>{b.name}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{b.units}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{fmt(Math.round(b.volume / b.units))}</td>
+                  <td style={{...tdStyle, textAlign: 'right', color: isBestReserve ? 'var(--accent)' : 'inherit', fontWeight: isBestReserve ? 700 : 400}}>{b.avgReserve > 0 ? fmt(b.avgReserve) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{b.avgSellRate > 0 ? fmtPct(b.avgSellRate) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{b.avgSpread > 0 ? b.avgSpread.toFixed(2) + '%' : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{b.avgTerm > 0 ? b.avgTerm.toFixed(0) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right', fontWeight: 600}}>{b.avgFiPru > 0 ? fmt(b.avgFiPru) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{b.totalFi > 0 ? fmt(b.totalFi) : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Insight Card */}
+      <div style={{ background: 'linear-gradient(135deg, rgba(204,255,0,0.08), rgba(0,212,255,0.05))', borderRadius: '12px', padding: '24px', border: '1px solid rgba(204,255,0,0.2)' }}>
+        <SectionTitle>Key Takeaway</SectionTitle>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {(() => {
+            const best = withData.sort((a,b) => b.avgFiPru - a.avgFiPru)[0];
+            const worst = withData.sort((a,b) => a.avgFiPru - b.avgFiPru)[0];
+            return `${best.name} delivers the highest F&I PRU at ${fmt(best.avgFiPru)}/unit with an average reserve of ${fmt(best.avgReserve)}. ` +
+              `By comparison, ${worst.name} yields ${fmt(worst.avgFiPru)}/unit — a spread of ${fmt(best.avgFiPru - worst.avgFiPru)} per deal. ` +
+              `Shifting volume toward higher-margin lenders can materially improve per-unit economics across the group.`;
+          })()}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: OVERVIEW (preserved from original)
+// ═══════════════════════════════════════════════════════════════════════════════
+function OverviewView({ theme }) {
+  const cc = chartC(theme);
+  const totalJanVol = BANK_DATA.reduce((s,b) => s + b.jan.financed, 0);
+  const totalDecVol = BANK_DATA.reduce((s,b) => s + b.dec.financed, 0);
+  const totalJanC = BANK_DATA.reduce((s,b) => s + b.jan.contracts, 0);
+  const totalDecC = BANK_DATA.reduce((s,b) => s + b.dec.contracts, 0);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <KPICard icon={<IconDollar />} label="Financed Volume" value={fmtK(totalJanVol)} subValue={`prev: ${fmtK(totalDecVol)}`} current={totalJanVol} previous={totalDecVol} />
+        <KPICard icon={<IconChart />} label="Contracts Financed" value={fmtNum(totalJanC)} subValue={`prev: ${fmtNum(totalDecC)}`} current={totalJanC} previous={totalDecC} />
+        <KPICard icon={<IconUsers />} label="Total Retail" value={fmtNum(TOTAL_RETAIL_JAN)} subValue={`prev: ${fmtNum(TOTAL_RETAIL_DEC)}`} current={TOTAL_RETAIL_JAN} previous={TOTAL_RETAIL_DEC} />
+        <KPICard icon={<IconTarget />} label="Lender Penetration" value={fmtPct(totalJanC / TOTAL_RETAIL_JAN)} subValue={`prev: ${fmtPct(totalDecC / TOTAL_RETAIL_DEC)}`} current={totalJanC / TOTAL_RETAIL_JAN} previous={totalDecC / TOTAL_RETAIL_DEC} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Contracts financed through lender partners">Volume by Bank</SectionTitle>
+          <div style={{ height: '280px' }}>
+            <ChartCanvas id={`volByBank-${theme}`} deps={[theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: BANK_DATA.map(b => b.name),
+                datasets: [
+                  { label: 'Jan 2026', data: BANK_DATA.map(b => b.jan.financed), backgroundColor: '#CCFF00', borderRadius: 4 },
+                  { label: 'Dec 2025', data: BANK_DATA.map(b => b.dec.financed), backgroundColor: 'rgba(204,255,0,0.25)', borderRadius: 4 },
+                ]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { color: cc.legend, font: { family: 'Inter', size: 11 } } } },
+                scales: {
+                  x: { ticks: { color: cc.tick, font: { family: 'Inter', size: 11 } }, grid: { display: false } },
+                  y: { ticks: { color: cc.tickDim, font: { family: 'Inter', size: 11 }, callback: v => fmtK(v) }, grid: { color: cc.grid } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle subtitle="Share of financed contracts by lender">Contract Distribution</SectionTitle>
+          <div style={{ height: '280px', display: 'flex', justifyContent: 'center' }}>
+            <ChartCanvas id={`contractDist-${theme}`} deps={[theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'doughnut',
+              data: {
+                labels: BANK_DATA.map(b => b.name),
+                datasets: [{ data: BANK_DATA.map(b => b.jan.contracts), backgroundColor: ['#CCFF00', '#00D4FF', '#FF6B6B'], borderWidth: 0, spacing: 3 }]
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: {
+                  legend: { position: 'bottom', labels: { color: cc.legend, font: { family: 'Inter', size: 12 }, padding: 16 } },
+                  tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} contracts (${fmtPct(ctx.parsed / totalJanC)})` } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+        <SectionTitle subtitle="Dealers with zero contracts or significant declines">Non-Activity & Trend Alerts</SectionTitle>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {BANK_DATA.map(bank => {
+            const inactive = bank.dealers.filter(d => d.jan.c === 0 && d.dec.c === 0);
+            const dropped = bank.dealers.filter(d => d.jan.c === 0 && d.dec.c > 0);
+            const declining = bank.dealers.filter(d => d.jan.c > 0 && d.dec.c > 0 && d.jan.v < d.dec.v * 0.5);
+            return (
+              <React.Fragment key={bank.name}>
+                {inactive.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(251,191,36,0.08)', borderRadius: '8px', border: '1px solid rgba(251,191,36,0.2)' }}>
+                    <span style={{ color: 'var(--warning)' }}><IconAlert /></span>
+                    <span style={{ fontSize: '0.85rem' }}><strong style={{ color: 'var(--warning)' }}>{bank.name}</strong> — {inactive.length} dealer{inactive.length > 1 ? 's' : ''} with zero activity both months: {inactive.map(d => d.name).join(', ')}</span>
+                  </div>
+                )}
+                {dropped.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(248,113,113,0.08)', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.2)' }}>
+                    <span style={{ color: 'var(--negative)' }}><IconAlert /></span>
+                    <span style={{ fontSize: '0.85rem' }}><strong style={{ color: 'var(--negative)' }}>{bank.name}</strong> — {dropped.length} dealer{dropped.length > 1 ? 's' : ''} dropped to zero in Jan: {dropped.map(d => `${d.name} (was ${d.dec.c} contracts)`).join(', ')}</span>
+                  </div>
+                )}
+                {declining.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(248,113,113,0.06)', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.15)' }}>
+                    <span style={{ color: 'var(--negative)', opacity: 0.7 }}><IconArrowDown /></span>
+                    <span style={{ fontSize: '0.85rem' }}><strong style={{ color: 'var(--text-secondary)' }}>{bank.name}</strong> — Significant volume decline: {declining.map(d => `${d.name} (${fmtK(d.dec.v)} → ${fmtK(d.jan.v)})`).join(', ')}</span>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: BANK DETAIL (preserved)
+// ═══════════════════════════════════════════════════════════════════════════════
+function BankDetailView({ bank, theme }) {
+  const cc = chartC(theme);
+  const activeDealers = bank.dealers.filter(d => d.jan.c > 0 || d.dec.c > 0);
+  const inactiveDealers = bank.dealers.filter(d => d.jan.c === 0 && d.dec.c === 0);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <KPICard icon={<IconDollar />} label="Financed Volume" value={fmtK(bank.jan.financed)} current={bank.jan.financed} previous={bank.dec.financed} />
+        <KPICard icon={<IconChart />} label="Contracts" value={fmtNum(bank.jan.contracts)} current={bank.jan.contracts} previous={bank.dec.contracts} />
+        <KPICard icon={<IconTarget />} label="Retail Penetration" value={fmtPct(bank.jan.pctRetail)} current={bank.jan.pctRetail} previous={bank.dec.pctRetail} />
+        <KPICard icon={<IconTrendUp />} label="Current Tier Payout" value={fmt(bank.tier.currentPayout)} subValue={bank.tier.current} />
+      </div>
+
+      {bank.tier.nextTier !== "n/a" && (
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '24px' }}>
+          <SectionTitle subtitle={`Progress toward ${bank.tier.nextTier} tier`}>Tier Progress</SectionTitle>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{bank.tier.current} — {fmt(bank.tier.currentPayout)}/contract</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--accent)' }}>{bank.tier.nextTier} — {fmt(bank.tier.nextPayout)}/contract</span>
+              </div>
+              <div style={{ height: '10px', background: 'var(--bg-surface-3)', borderRadius: '5px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min((bank.tier.annualProjected / (bank.tier.annualProjected + bank.tier.neededForNext)) * 100, 100)}%`, background: 'linear-gradient(90deg, var(--accent), #9BDB00)', borderRadius: '5px', transition: 'width 0.6s ease' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Projected: {fmtK(bank.tier.annualProjected)}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Need: {fmtK(bank.tier.neededForNext)} more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+          <SectionTitle>Dealer Volume Comparison</SectionTitle>
+          <div style={{ height: '320px' }}>
+            <ChartCanvas id={`dlrChart-${bank.name}-${theme}`} deps={[bank.name, theme]} initChart={(ctx) => new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: activeDealers.map(d => d.name),
+                datasets: [
+                  { label: 'Jan 2026', data: activeDealers.map(d => d.jan.v), backgroundColor: '#CCFF00', borderRadius: 4 },
+                  { label: 'Dec 2025', data: activeDealers.map(d => d.dec.v), backgroundColor: 'rgba(204,255,0,0.25)', borderRadius: 4 },
+                ]
+              },
+              options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { color: cc.legend, font: { family: 'Inter', size: 11 } } } },
+                scales: {
+                  x: { ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmtK(v) }, grid: { color: cc.grid } },
+                  y: { ticks: { color: cc.tick, font: { family: 'Inter', size: 11 } }, grid: { display: false } }
+                }
+              }
+            })} />
+          </div>
+        </div>
+        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', overflow: 'auto' }}>
+          <SectionTitle>Dealer Detail</SectionTitle>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={thStyle}>Dealer</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Jan Contracts</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Jan Volume</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Dec Contracts</th>
+                <th style={{...thStyle, textAlign: 'right'}}>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bank.dealers.sort((a,b) => b.jan.v - a.jan.v).map(d => (
+                <tr key={d.name} style={{ borderBottom: '1px solid rgba(51,51,51,0.5)' }}>
+                  <td style={tdStyle}>{d.name}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{d.jan.c}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{d.jan.v > 0 ? fmtK(d.jan.v) : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>{d.dec.c}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>
+                    {d.jan.c === 0 && d.dec.c === 0 ? <span style={{ color: 'var(--text-tertiary)' }}>No activity</span> :
+                     d.jan.c === 0 && d.dec.c > 0 ? <span style={{ color: 'var(--negative)', fontWeight: 600 }}>Dropped</span> :
+                     d.dec.c === 0 && d.jan.c > 0 ? <span style={{ color: 'var(--positive)', fontWeight: 600 }}>New</span> :
+                     <DeltaBadge current={d.jan.v} previous={d.dec.v} />}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {inactiveDealers.length > 0 && (
+        <div style={{ background: 'rgba(251,191,36,0.06)', borderRadius: '12px', padding: '20px 24px', border: '1px solid rgba(251,191,36,0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <span style={{ color: 'var(--warning)' }}><IconAlert /></span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--warning)' }}>Inactive Rooftops — {inactiveDealers.length} dealers with zero activity</span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            {inactiveDealers.map(d => d.name).join(', ')} — Consider outreach to re-engage these locations with {bank.name}.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VIEW: DEALER REPORT (preserved)
+// ═══════════════════════════════════════════════════════════════════════════════
+function DealerReportView({ theme }) {
+  const cc = chartC(theme);
+  const allDealers = [...new Set(BANK_DATA.flatMap(b => b.dealers.map(d => d.name)))].sort();
+  const dealerMatrix = allDealers.map(dName => {
+    const row = { name: dName, banks: {} };
+    let totalJan = 0, totalDec = 0;
+    BANK_DATA.forEach(bank => {
+      const d = bank.dealers.find(dd => dd.name === dName);
+      if (d) { row.banks[bank.name] = { jan: d.jan, dec: d.dec }; totalJan += d.jan.v; totalDec += d.dec.v; }
+    });
+    row.totalJan = totalJan; row.totalDec = totalDec;
+    return row;
+  });
+
+  return (
+    <div>
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '24px', overflow: 'auto' }}>
+        <SectionTitle subtitle="Financed volume across all lender partners by rooftop">Dealer Performance Matrix</SectionTitle>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+              <th style={thStyle}>Dealer</th>
+              {BANK_DATA.map(b => <th key={b.name} style={{...thStyle, textAlign: 'center'}} colSpan="2">{b.name}</th>)}
+              <th style={{...thStyle, textAlign: 'right'}}>Total Jan</th>
+              <th style={{...thStyle, textAlign: 'right'}}>Trend</th>
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <th style={thStyle}></th>
+              {BANK_DATA.map(b => (
+                <React.Fragment key={b.name}>
+                  <th style={{...thStyle, textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-tertiary)'}}>Contracts</th>
+                  <th style={{...thStyle, textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-tertiary)'}}>Volume</th>
+                </React.Fragment>
+              ))}
+              <th style={thStyle}></th><th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {dealerMatrix.sort((a,b) => b.totalJan - a.totalJan).map(row => (
+              <tr key={row.name} style={{ borderBottom: '1px solid rgba(51,51,51,0.4)' }}>
+                <td style={{...tdStyle, fontWeight: 600}}>{row.name}</td>
+                {BANK_DATA.map(b => {
+                  const bd = row.banks[b.name];
+                  return (<React.Fragment key={b.name}><td style={{...tdStyle, textAlign: 'right'}}>{bd ? (bd.jan.c || '—') : '—'}</td><td style={{...tdStyle, textAlign: 'right'}}>{bd && bd.jan.v > 0 ? fmtK(bd.jan.v) : '—'}</td></React.Fragment>);
+                })}
+                <td style={{...tdStyle, textAlign: 'right', fontWeight: 600, color: row.totalJan > 0 ? 'var(--accent)' : 'var(--text-tertiary)'}}>{row.totalJan > 0 ? fmtK(row.totalJan) : '—'}</td>
+                <td style={{...tdStyle, textAlign: 'right'}}>{row.totalJan === 0 && row.totalDec === 0 ? <span style={{ color: 'var(--warning)', fontSize: '0.7rem' }}>No activity</span> : <DeltaBadge current={row.totalJan} previous={row.totalDec} />}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
+        <SectionTitle>Dealer Volume Heatmap</SectionTitle>
+        <div style={{ height: '360px' }}>
+          <ChartCanvas id={`dealerHeatmap-${theme}`} deps={[theme]} initChart={(ctx) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: dealerMatrix.sort((a,b) => b.totalJan - a.totalJan).map(d => d.name),
+              datasets: BANK_DATA.map((b, i) => ({
+                label: b.name,
+                data: dealerMatrix.sort((a,b2) => b2.totalJan - a.totalJan).map(d => d.banks[b.name]?.jan?.v || 0),
+                backgroundColor: ['#CCFF00', '#00D4FF', '#FF6B6B'][i],
+                borderRadius: 2
+              }))
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { position: 'top', labels: { color: cc.legend, font: { family: 'Inter', size: 11 } } } },
+              scales: {
+                x: { stacked: true, ticks: { color: cc.tick, font: { family: 'Inter', size: 10 } }, grid: { display: false } },
+                y: { stacked: true, ticks: { color: cc.tickDim, font: { family: 'Inter', size: 10 }, callback: v => fmtK(v) }, grid: { color: cc.grid } }
+              }
+            }
+          })} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════════════════
+function App() {
+  const [activeView, setActiveView] = useState('myDealer');
+  const [selectedBank, setSelectedBank] = useState(null);
+  const [selectedDealer, setSelectedDealer] = useState('Dealer #1');
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
+  const navSections = [
+    { heading: null, items: [
+      { id: 'myDealer', label: 'My Dealership', icon: <IconStore /> },
+      { id: 'yourMoney', label: 'Your Money', icon: <IconWallet /> },
+    ]},
+    { heading: 'GROUP', items: [
+      { id: 'overview', label: 'Overview', icon: <IconChart /> },
+      { id: 'fi-economics', label: 'F&I Economics', icon: <IconLayers /> },
+      { id: 'dealers', label: 'Dealer Report', icon: <IconUsers /> },
+    ]},
+    { heading: 'LENDERS', items: BANK_DATA.map(b => ({ id: `bank-${b.name}`, label: b.name })) },
+  ];
+
+  const handleNav = (id) => {
+    setActiveView(id);
+    if (id.startsWith('bank-')) {
+      setSelectedBank(BANK_DATA.find(b => b.name === id.replace('bank-', '')));
+    }
+  };
+
+  const viewTitles = {
+    myDealer: { title: 'My Dealership', sub: `${selectedDealer} — ${REPORT_PERIOD}` },
+    yourMoney: { title: 'Your Money', sub: `${DEALER_GROUP} — Incentive earnings & tier opportunity` },
+    overview: { title: 'Portfolio Overview', sub: `${DEALER_GROUP} — ${REPORT_PERIOD} vs. ${PREV_PERIOD}` },
+    'fi-economics': { title: 'F&I Economics', sub: 'Per-deal profitability analysis by lender' },
+    dealers: { title: 'Dealer Report', sub: 'Cross-bank performance by rooftop' },
+  };
+  const vt = viewTitles[activeView] || (selectedBank ? { title: selectedBank.name, sub: `${REPORT_PERIOD} performance detail` } : { title: '', sub: '' });
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <header style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg style={{ height: '36px', width: 'auto' }} viewBox="0 0 1000 221.66" xmlns="http://www.w3.org/2000/svg">
+              <rect x=".19" y="118.22" width="998.49" height="18.63" fill="#cf0"/>
+              <path d="M51.69,0h33.37c35.56,0,51.69,19.39,51.69,48.88v63.54h-38.29v-21.18h-60.17v21.18H0v-63.54C0,19.39,16.14,0,51.69,0ZM38.29,58.65h60.17v-9.77c0-6.52-3.28-13.03-13.54-13.03h-33.1c-10.26,0-13.54,6.52-13.54,13.03v9.77Z" fill="currentColor"/>
+              <path d="M252.32,24.44v87.98h-63.45c-32,0-46.63-17.6-46.63-43.99V24.44h35.56v43.99c0,5.86,3.15,13.03,12.45,13.03h26.53V24.44h35.56Z" fill="currentColor"/>
+              <path d="M257.79,67.88V23.89L279.67,0h13.68v23.89h50.6v30.96h-50.6v13.03c0,5.86,3.15,13.03,12.45,13.03h38.15v30.95h-39.52c-32,0-46.63-17.6-46.63-43.99Z" fill="currentColor"/>
+              <path d="M393.32,24.44h31.18c32,0,46.63,19.71,46.63,43.99,0,26.39-14.63,43.99-46.63,43.99h-31.18c-32,0-46.63-17.6-46.63-43.99,0-24.28,14.63-43.99,46.63-43.99ZM382.38,68.43c0,5.86,3.01,13.03,12.31,13.03h28.45c9.3,0,12.31-7.17,12.31-13.03s-3.01-13.03-12.31-13.03h-28.45c-9.3,0-12.31,7.17-12.31,13.03Z" fill="currentColor"/>
+              <path d="M517.64,112.42V36.83h-50.6V0h139.49v36.83h-50.6v75.58h-38.29Z" fill="currentColor"/>
+              <path d="M640.72,112.42h-35.56v-43.99c0-26.39,14.63-43.99,46.63-43.99h29.95v30.96h-28.58c-9.3,0-12.45,7.17-12.45,13.03v43.99Z" fill="currentColor"/>
+              <path d="M795.95,24.44v87.98h-63.45c-32,0-46.63-17.6-46.63-43.99V24.44h35.56v43.99c0,5.86,3.15,13.03,12.45,13.03h26.53V24.44h35.56Z" fill="currentColor"/>
+              <path d="M801.15,112.42v-30.95h70.7c3.15,0,4.24-1.79,4.24-3.26s-1.09-3.26-4.24-3.26h-38.7c-13.54,0-33.1-2.93-33.1-25.58s17.78-24.93,33.1-24.93h73.98v30.96h-70.57c-3.28,0-4.38,1.79-4.38,3.26s1.09,3.26,4.38,3.26h38.7c13.54,0,32.96,3.1,32.96,25.74s-17.64,24.76-32.96,24.76h-74.12Z" fill="currentColor"/>
+              <path d="M912.33,67.88V23.89l21.88-23.89h13.68v23.89h50.6v30.96h-50.6v13.03c0,5.86,3.15,13.03,12.45,13.03h38.15v30.95h-39.52c-32,0-46.63-17.6-46.63-43.99Z" fill="currentColor"/>
+              <path d="M110.14,0h162.73l-17.03,18.63h-121.09c-6.5-10.27-10.54-14.81-24.61-18.63Z" fill="#cf0"/>
+              <rect x="298.68" width="163.03" height="18.63" fill="#cf0"/>
+              <polygon points="611.86 0 927.04 0 910.01 18.63 611.86 18.63 611.86 0" fill="#cf0"/>
+              <rect x="953.22" width="45.27" height="18.63" fill="#cf0"/>
+              <path d="M.87,155.68h18.61c19.8,0,32.84,9.65,32.84,32.15s-13.04,32.64-31.95,32.64H.87v-64.79ZM18.58,208.03c10.45,0,17.91-4.88,17.91-20.2s-7.46-19.71-17.91-19.71h-2.19v39.91h2.19Z" fill="currentColor"/>
+              <path d="M79.99,155.68h41v12.94h-25.48v12.14h21.8v12.94h-21.8v13.83h26.47v12.94h-42v-64.79Z" fill="currentColor"/>
+              <path d="M162.4,155.68h18.51l20.2,64.79h-16.32l-3.78-14.93h-19.21l-3.78,14.93h-15.82l20.2-64.79ZM164.78,193.6h13.24l-1.39-5.57c-1.69-6.37-3.38-14.03-5.08-20.8h-.4c-1.59,6.77-3.28,14.43-4.97,20.8l-1.39,5.57Z" fill="currentColor"/>
+              <path d="M223.5,155.68h15.53v51.85h25.18v12.94h-40.7v-64.79Z" fill="currentColor"/>
+              <path d="M291.18,155.68h41v12.94h-25.48v12.14h21.8v12.94h-21.8v13.83h26.47v12.94h-42v-64.79Z" fill="currentColor"/>
+              <path d="M361.65,155.68h23.79c13.73,0,25.28,4.78,25.28,20.4,0,9.45-4.48,15.52-11.14,18.71l14.43,25.68h-17.32l-11.94-22.79h-7.56v22.79h-15.53v-64.79ZM384.24,185.44c7.36,0,11.35-3.18,11.35-9.35s-3.98-8.16-11.35-8.16h-7.07v17.52h7.07Z" fill="currentColor"/>
+              <path d="M486.45,155.68h18.51l20.2,64.79h-16.32l-3.78-14.93h-19.21l-3.78,14.93h-15.82l20.2-64.79ZM488.84,193.6h13.24l-1.39-5.57c-1.69-6.37-3.38-14.03-5.08-20.8h-.4c-1.59,6.77-3.28,14.43-4.97,20.8l-1.39,5.57Z" fill="currentColor"/>
+              <path d="M547.56,155.68h15.53v51.85h25.18v12.94h-40.7v-64.79Z" fill="currentColor"/>
+              <path d="M615.24,155.68h15.53v51.85h25.18v12.94h-40.7v-64.79Z" fill="currentColor"/>
+              <path d="M682.91,155.68h15.53v64.79h-15.53v-64.79Z" fill="currentColor"/>
+              <path d="M741.04,155.68h18.51l20.2,64.79h-16.32l-3.78-14.93h-19.21l-3.78,14.93h-15.82l20.2-64.79ZM743.42,193.6h13.24l-1.39-5.57c-1.69-6.37-3.38-14.03-5.08-20.8h-.4c-1.59,6.77-3.28,14.43-4.97,20.8l-1.39,5.57Z" fill="currentColor"/>
+              <path d="M802.15,155.68h16.02l15.92,31.05c2.29,4.38,4.38,9.55,6.37,14.63h.4c-.8-6.97-1.99-16.22-1.99-23.89v-21.79h14.63v64.79h-15.92l-16.02-31.05c-2.19-4.38-4.28-9.55-6.27-14.63h-.4c.8,7.16,1.99,16.12,1.99,23.89v21.79h-14.73v-64.79Z" fill="currentColor"/>
+              <path d="M881.27,188.52c0-21.6,14.53-34.04,30.85-34.04,8.46,0,15.23,3.78,19.71,8.46l-8.16,9.36c-3.18-2.99-6.57-4.48-11.15-4.48-8.56,0-15.42,7.56-15.42,20.1s6.07,20.4,15.13,20.4c5.28,0,9.36-2.09,12.44-5.37l8.06,9.16c-5.67,6.47-12.84,9.55-21,9.55-16.52,0-30.45-11.25-30.45-33.14Z" fill="currentColor"/>
+              <path d="M958,155.68h41v12.94h-25.48v12.14h21.8v12.94h-21.8v13.83h26.47v12.94h-42v-64.79Z" fill="currentColor"/>
+            </svg>
+            <div style={{ width: '1px', height: '28px', background: 'var(--border)' }} />
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.3 }}>Lender<br/>Performance</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginRight: '8px' }}>{DEALER_GROUP}</span>
+            <span style={{ background: 'var(--accent-dim)', color: 'var(--accent)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600 }}>{REPORT_PERIOD}</span>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{
+                background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: '8px',
+                padding: '6px 8px', cursor: 'pointer', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s ease', marginLeft: '4px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex', flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        {/* Sidebar */}
+        <nav style={{ width: '210px', flexShrink: 0, borderRight: '1px solid var(--border)', padding: '16px 0', position: 'sticky', top: '64px', height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
+          {navSections.map((section, si) => (
+            <div key={si} style={{ marginBottom: '8px' }}>
+              {section.heading && (
+                <div style={{ padding: '12px 24px 4px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{section.heading}</div>
+              )}
+              {section.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNav(item.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 24px',
+                    border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeView === item.id ? 600 : 400,
+                    color: activeView === item.id ? 'var(--accent)' : 'var(--text-secondary)',
+                    background: activeView === item.id ? 'var(--accent-dim)' : 'transparent',
+                    borderLeft: activeView === item.id ? '2px solid var(--accent)' : '2px solid transparent',
+                    fontFamily: 'Inter', transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={e => { if (activeView !== item.id) { e.target.style.background = 'var(--bg-surface-2)'; e.target.style.color = 'var(--text-primary)'; } }}
+                  onMouseLeave={e => { if (activeView !== item.id) { e.target.style.background = 'transparent'; e.target.style.color = 'var(--text-secondary)'; } }}
+                >
+                  {item.icon && <span style={{ flexShrink: 0, opacity: 0.7 }}>{item.icon}</span>}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em' }}>{vt.title}</h1>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{vt.sub}</p>
+          </div>
+          {activeView === 'myDealer' && <MyDealershipView selectedDealer={selectedDealer} onDealerChange={setSelectedDealer} theme={theme} />}
+          {activeView === 'yourMoney' && <YourMoneyView theme={theme} />}
+          {activeView === 'overview' && <OverviewView theme={theme} />}
+          {activeView === 'fi-economics' && <FIEconomicsView theme={theme} />}
+          {activeView.startsWith('bank-') && selectedBank && <BankDetailView bank={selectedBank} theme={theme} />}
+          {activeView === 'dealers' && <DealerReportView theme={theme} />}
+        </main>
+      </div>
+
+      <footer style={{ borderTop: '1px solid var(--border)', padding: '16px 32px', textAlign: 'center' }}>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>AutoTrust Dealer Alliance — Lender Performance Dashboard — Data sourced from StoneEagle Metrics — Confidential</span>
+      </footer>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
