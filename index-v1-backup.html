@@ -52,40 +52,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 select { background: var(--bg-surface-2); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-family: Inter; font-size: 0.85rem; cursor: pointer; outline: none; }
 select:focus { border-color: var(--accent); }
-
-/* ─── Mobile-responsive ranking view ─── */
-@media (max-width: 768px) {
-  .ranking-card { padding: 16px !important; }
-  .ranking-number { font-size: 2.5rem !important; }
-}
-.tier-progress-bar {
-  height: 8px;
-  background: var(--bg-surface-3);
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 8px 0;
-}
-.tier-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), #9BDB00);
-  border-radius: 4px;
-  transition: width 0.6s ease;
-}
-.anomaly-flag {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-.sortable-th {
-  cursor: pointer;
-  user-select: none;
-}
-.sortable-th:hover {
-  color: var(--accent);
-}
 </style>
 </head>
 <body>
@@ -202,116 +168,6 @@ const BOFA_TIERS = [
   { label: "$50MM+", threshold: Infinity, bps: 0.0045, dealerShare: 0.8, atsShare: 0.2 },
 ];
 
-// ─── NEW DATA: Projection Constants ─────────────────────────────────────────
-// Day-of-month for projection calc (pretend we're on day 11 of January)
-const CURRENT_DAY = 11;
-const DAYS_IN_MONTH = 31;
-
-// ─── DEALER GROUPS (for ranking view) ──────────────────────────────────────
-const DEALER_GROUPS = [
-  {
-    name: "Hendrick Automotive",
-    rooftops: 18,
-    totalRetailJan: 1450, totalRetailDec: 1380,
-    banks: {
-      "Chase": { janC: 32, janV: 1050000, decC: 28, decV: 920000, subvented: 2 },
-      "Bank of America": { janC: 45, janV: 1480000, decC: 42, decV: 1350000, subvented: 1 },
-      "Santander": { janC: 55, janV: 1280000, decC: 50, decV: 1150000, subvented: 0 },
-    }
-  },
-  {
-    name: "AutoNation Southwest",
-    rooftops: 14,
-    totalRetailJan: 1180, totalRetailDec: 1210,
-    banks: {
-      "Chase": { janC: 22, janV: 720000, decC: 26, decV: 850000, subvented: 0 },
-      "Bank of America": { janC: 30, janV: 985000, decC: 35, decV: 1150000, subvented: 1 },
-      "Santander": { janC: 38, janV: 880000, decC: 32, decV: 740000, subvented: 0 },
-    }
-  },
-  {
-    name: "Penske Motor Group",
-    rooftops: 22,
-    totalRetailJan: 1820, totalRetailDec: 1750,
-    banks: {
-      "Chase": { janC: 48, janV: 1580000, decC: 44, decV: 1440000, subvented: 1 },
-      "Bank of America": { janC: 62, janV: 2040000, decC: 58, decV: 1910000, subvented: 0 },
-      "Santander": { janC: 70, janV: 1630000, decC: 65, decV: 1500000, subvented: 0 },
-    }
-  },
-  {
-    name: "Sonic Automotive",
-    rooftops: 12,
-    totalRetailJan: 980, totalRetailDec: 1020,
-    banks: {
-      "Chase": { janC: 10, janV: 328000, decC: 14, decV: 460000, subvented: 0 },
-      "Bank of America": { janC: 15, janV: 492000, decC: 18, decV: 590000, subvented: 0 },
-      "Santander": { janC: 20, janV: 465000, decC: 22, decV: 510000, subvented: 1 },
-    }
-  },
-  {
-    name: "Larry H. Miller",
-    rooftops: 16,
-    totalRetailJan: 1320, totalRetailDec: 1280,
-    banks: {
-      "Chase": { janC: 35, janV: 1150000, decC: 30, decV: 985000, subvented: 0 },
-      "Bank of America": { janC: 40, janV: 1315000, decC: 38, decV: 1250000, subvented: 0 },
-      "Santander": { janC: 52, janV: 1210000, decC: 48, decV: 1110000, subvented: 0 },
-    }
-  },
-  {
-    name: "JM Family Enterprises",
-    rooftops: 10,
-    totalRetailJan: 860, totalRetailDec: 890,
-    banks: {
-      "Chase": { janC: 8, janV: 263000, decC: 10, decV: 328000, subvented: 0 },
-      "Bank of America": { janC: 12, janV: 394000, decC: 14, decV: 460000, subvented: 0 },
-      "Santander": { janC: 18, janV: 419000, decC: 15, decV: 348000, subvented: 0 },
-    }
-  },
-  {
-    name: "Sewell Automotive",
-    rooftops: 8,
-    totalRetailJan: 620, totalRetailDec: 610,
-    banks: {
-      "Chase": { janC: 15, janV: 492000, decC: 12, decV: 394000, subvented: 0 },
-      "Bank of America": { janC: 20, janV: 658000, decC: 18, decV: 592000, subvented: 0 },
-      "Santander": { janC: 28, janV: 652000, decC: 25, decV: 580000, subvented: 0 },
-    }
-  },
-  {
-    name: "Park Place Dealerships",
-    rooftops: 9,
-    totalRetailJan: 710, totalRetailDec: 740,
-    banks: {
-      "Chase": { janC: 18, janV: 591000, decC: 20, decV: 656000, subvented: 0 },
-      "Bank of America": { janC: 22, janV: 723000, decC: 25, decV: 822000, subvented: 0 },
-      "Santander": { janC: 30, janV: 698000, decC: 28, decV: 650000, subvented: 0 },
-    }
-  },
-  {
-    name: "Asbury Automotive",
-    rooftops: 20,
-    totalRetailJan: 1580, totalRetailDec: 1540,
-    banks: {
-      "Chase": { janC: 25, janV: 821000, decC: 22, decV: 722000, subvented: 0 },
-      "Bank of America": { janC: 32, janV: 1052000, decC: 28, decV: 921000, subvented: 1 },
-      "Santander": { janC: 40, janV: 931000, decC: 42, decV: 976000, subvented: 0 },
-    }
-  },
-  {
-    // This is the "current" group whose detailed data we show
-    name: "DEALER Motor Group",
-    rooftops: 13,
-    totalRetailJan: 982, totalRetailDec: 996,
-    banks: {
-      "Chase": { janC: 6, janV: 199127, decC: 7, decV: 246006, subvented: 0 },
-      "Bank of America": { janC: 17, janV: 541207, decC: 32, decV: 1070285, subvented: 1 },
-      "Santander": { janC: 25, janV: 573204, decC: 20, decV: 471741, subvented: 1 },
-    }
-  }
-];
-
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 const fmt = (n) => n != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) : '$0';
 const fmtK = (n) => n >= 1000000 ? `$${(n/1000000).toFixed(1)}M` : n >= 1000 ? `$${(n/1000).toFixed(0)}K` : fmt(n);
@@ -334,80 +190,6 @@ function getGroupAvg(field) {
     }, 0);
   });
   return allDealerTotals.reduce((s,v) => s + v, 0) / DEALER_NAMES.length;
-}
-
-// ─── TIER LOOKUP HELPER ─────────────────────────────────────────────────────
-function getTierForBank(bankName, annualVolume) {
-  if (bankName === "Chase") {
-    for (let i = CHASE_TIERS.length - 1; i >= 0; i--) {
-      if (annualVolume >= (i === 0 ? 0 : CHASE_TIERS[i-1].threshold)) {
-        return {
-          tierIndex: i,
-          totalTiers: CHASE_TIERS.length,
-          current: CHASE_TIERS[i],
-          next: i < CHASE_TIERS.length - 1 ? CHASE_TIERS[i+1] : null,
-          currentPayout: CHASE_TIERS[i].payout,
-          nextPayout: i < CHASE_TIERS.length - 1 ? CHASE_TIERS[i+1].payout : CHASE_TIERS[i].payout,
-        };
-      }
-    }
-    return { tierIndex: 0, totalTiers: CHASE_TIERS.length, current: CHASE_TIERS[0], next: CHASE_TIERS[1], currentPayout: CHASE_TIERS[0].payout, nextPayout: CHASE_TIERS[1].payout };
-  }
-  if (bankName === "Bank of America") {
-    for (let i = BOFA_TIERS.length - 1; i >= 0; i--) {
-      if (annualVolume >= (i === 0 ? 0 : BOFA_TIERS[i-1].threshold)) {
-        const estPayout = Math.round(BOFA_TIERS[i].bps * 35000);
-        const nextPayout = i < BOFA_TIERS.length - 1 ? Math.round(BOFA_TIERS[i+1].bps * 35000) : estPayout;
-        return {
-          tierIndex: i,
-          totalTiers: BOFA_TIERS.length,
-          current: BOFA_TIERS[i],
-          next: i < BOFA_TIERS.length - 1 ? BOFA_TIERS[i+1] : null,
-          currentPayout: estPayout,
-          nextPayout: nextPayout,
-        };
-      }
-    }
-    const estPayout = Math.round(BOFA_TIERS[0].bps * 35000);
-    return { tierIndex: 0, totalTiers: BOFA_TIERS.length, current: BOFA_TIERS[0], next: BOFA_TIERS[1], currentPayout: estPayout, nextPayout: Math.round(BOFA_TIERS[1].bps * 35000) };
-  }
-  // Santander - flat rate
-  return { tierIndex: 0, totalTiers: 1, current: { label: "Flat Rate", payout: 80 }, next: null, currentPayout: 80, nextPayout: 80 };
-}
-
-// ─── COMPUTE GROUP STATS FOR RANKING ─────────────────────────────────────────
-function computeGroupStats(group, excludeSubvented) {
-  let totalC = 0, totalV = 0, totalDecC = 0, totalDecV = 0, excludedCount = 0;
-  const bankStats = {};
-  Object.entries(group.banks).forEach(([bankName, b]) => {
-    const sub = excludeSubvented ? (b.subvented || 0) : 0;
-    excludedCount += sub;
-    const adjC = b.janC - sub;
-    const adjV = b.janV - sub * Math.round(b.janV / Math.max(b.janC, 1));
-    totalC += adjC;
-    totalV += adjV;
-    totalDecC += b.decC;
-    totalDecV += b.decV;
-    const annualized = adjV * 12;
-    const tier = getTierForBank(bankName, annualized);
-    // Projection
-    const projectedMonthV = Math.round(adjV / CURRENT_DAY * DAYS_IN_MONTH);
-    const projectedAnnualV = projectedMonthV * 12;
-    const projectedTier = getTierForBank(bankName, projectedAnnualV);
-    // Progress toward next tier
-    let progress = 1;
-    if (tier.next) {
-      const currentThreshold = tier.tierIndex === 0 ? 0 : (bankName === "Chase" ? CHASE_TIERS[tier.tierIndex - 1].threshold : BOFA_TIERS[tier.tierIndex - 1].threshold);
-      const nextThreshold = bankName === "Chase" ? CHASE_TIERS[tier.tierIndex].threshold : BOFA_TIERS[tier.tierIndex].threshold;
-      progress = Math.min((annualized - currentThreshold) / (nextThreshold - currentThreshold), 1);
-    }
-    bankStats[bankName] = { ...b, adjC, adjV, annualized, tier, projectedTier, projectedMonthV, progress };
-  });
-  const penetration = totalC / group.totalRetailJan;
-  const prevPenetration = totalDecC / group.totalRetailDec;
-  const penDelta = (penetration - prevPenetration) * 100; // in percentage points
-  const totalVDelta = totalDecV > 0 ? (totalV - totalDecV) / totalDecV : 0;
-  return { ...group, totalC, totalV, totalDecC, totalDecV, penetration, prevPenetration, penDelta, totalVDelta, bankStats, excludedCount };
 }
 
 // ─── ICONS (inline SVG) ─────────────────────────────────────────────────────
@@ -485,12 +267,10 @@ function ChartCanvas({ id, initChart, deps = [] }) {
 const thStyle = { padding: '10px 12px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' };
 const tdStyle = { padding: '10px 12px', color: 'var(--text-primary)' };
 
-// ═══ VIEWS START BELOW ═══
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // VIEW: MY DEALERSHIP
 // ═══════════════════════════════════════════════════════════════════════════════
-function MyDealershipView({ selectedDealer, onDealerChange, theme, role }) {
+function MyDealershipView({ selectedDealer, onDealerChange, theme }) {
   const cc = chartC(theme);
   const data = getDealerData(selectedDealer);
   const totalJanC = data.reduce((s, d) => s + d.jan.c, 0);
@@ -524,16 +304,12 @@ function MyDealershipView({ selectedDealer, onDealerChange, theme, role }) {
 
   return (
     <div>
-      {/* Dealer Selector — hidden for Store Managers (they pick store in header) */}
+      {/* Dealer Selector */}
       <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Viewing:</span>
-        {role === 'storeManager' ? (
-          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{selectedDealer}</span>
-        ) : (
-          <select value={selectedDealer} onChange={e => onDealerChange(e.target.value)}>
-            {DEALER_NAMES.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        )}
+        <select value={selectedDealer} onChange={e => onDealerChange(e.target.value)}>
+          {DEALER_NAMES.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
       </div>
 
       {/* KPIs */}
@@ -903,70 +679,14 @@ function FIEconomicsView({ theme }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VIEW: OVERVIEW (ENHANCED with Dealer Group Performance)
+// VIEW: OVERVIEW (preserved from original)
 // ═══════════════════════════════════════════════════════════════════════════════
-function OverviewView({ theme, excludeSubvented }) {
+function OverviewView({ theme }) {
   const cc = chartC(theme);
   const totalJanVol = BANK_DATA.reduce((s,b) => s + b.jan.financed, 0);
   const totalDecVol = BANK_DATA.reduce((s,b) => s + b.dec.financed, 0);
   const totalJanC = BANK_DATA.reduce((s,b) => s + b.jan.contracts, 0);
   const totalDecC = BANK_DATA.reduce((s,b) => s + b.dec.contracts, 0);
-
-  const [sortCol, setSortCol] = useState('penetration');
-  const [sortDir, setSortDir] = useState('desc');
-
-  const groupStats = useMemo(() => {
-    return DEALER_GROUPS.map(g => computeGroupStats(g, excludeSubvented));
-  }, [excludeSubvented]);
-
-  const sortedGroups = useMemo(() => {
-    const sorted = [...groupStats];
-    sorted.sort((a, b) => {
-      let aVal, bVal;
-      switch (sortCol) {
-        case 'name': aVal = a.name; bVal = b.name; return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        case 'rooftops': aVal = a.rooftops; bVal = b.rooftops; break;
-        case 'penetration': aVal = a.penetration; bVal = b.penetration; break;
-        case 'chasePen': aVal = (a.bankStats['Chase']?.adjC || 0) / a.totalRetailJan; bVal = (b.bankStats['Chase']?.adjC || 0) / b.totalRetailJan; break;
-        case 'bofaPen': aVal = (a.bankStats['Bank of America']?.adjC || 0) / a.totalRetailJan; bVal = (b.bankStats['Bank of America']?.adjC || 0) / b.totalRetailJan; break;
-        case 'santanderPen': aVal = (a.bankStats['Santander']?.adjC || 0) / a.totalRetailJan; bVal = (b.bankStats['Santander']?.adjC || 0) / b.totalRetailJan; break;
-        case 'penDelta': aVal = a.penDelta; bVal = b.penDelta; break;
-        case 'contracts': aVal = a.totalC; bVal = b.totalC; break;
-        case 'volume': aVal = a.totalV; bVal = b.totalV; break;
-        default: aVal = a.penetration; bVal = b.penetration;
-      }
-      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
-    });
-    return sorted;
-  }, [groupStats, sortCol, sortDir]);
-
-  const handleSort = (col) => {
-    if (sortCol === col) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortCol(col);
-      setSortDir('desc');
-    }
-  };
-
-  const sortIndicator = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-
-  // Build anomaly flags
-  const anomalies = useMemo(() => {
-    const flags = [];
-    groupStats.forEach(g => {
-      if (g.penDelta < -2) {
-        flags.push({ severity: 'red', group: g.name, msg: `${g.name}: Penetration dropped ${Math.abs(g.penDelta).toFixed(1)}pp MoM`, action: 'Verify F&I manager status — check for staffing changes or training gaps' });
-      }
-      if (g.totalVDelta < -0.3) {
-        flags.push({ severity: 'red', group: g.name, msg: `${g.name}: Volume down ${Math.abs(g.totalVDelta * 100).toFixed(0)}% MoM`, action: 'Review lender program awareness — schedule dealer visit' });
-      }
-      if (g.totalVDelta > 0.3) {
-        flags.push({ severity: 'yellow', group: g.name, msg: `${g.name}: Volume up ${(g.totalVDelta * 100).toFixed(0)}% MoM — verify deal quality`, action: 'Audit recent submissions for compliance' });
-      }
-    });
-    return flags;
-  }, [groupStats]);
 
   return (
     <div>
@@ -1022,7 +742,7 @@ function OverviewView({ theme, excludeSubvented }) {
         </div>
       </div>
 
-      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '32px' }}>
+      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
         <SectionTitle subtitle="Dealers with zero contracts or significant declines">Non-Activity & Trend Alerts</SectionTitle>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {BANK_DATA.map(bank => {
@@ -1054,79 +774,12 @@ function OverviewView({ theme, excludeSubvented }) {
           })}
         </div>
       </div>
-
-      {/* ─── Dealer Group Performance Table ─── */}
-      <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)', marginBottom: '32px', overflow: 'auto' }}>
-        <SectionTitle subtitle="Lender penetration and volume across all managed dealer groups">Dealer Group Performance</SectionTitle>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border)' }}>
-              <th className="sortable-th" style={thStyle} onClick={() => handleSort('name')}>Group Name{sortIndicator('name')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('rooftops')}>Rooftops{sortIndicator('rooftops')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('penetration')}>Overall Pen %{sortIndicator('penetration')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('chasePen')}>Chase Pen %{sortIndicator('chasePen')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('bofaPen')}>BofA Pen %{sortIndicator('bofaPen')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('santanderPen')}>Santander Pen %{sortIndicator('santanderPen')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('penDelta')}>MoM Change (pp){sortIndicator('penDelta')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('contracts')}>Contracts{sortIndicator('contracts')}</th>
-              <th className="sortable-th" style={{...thStyle, textAlign: 'right'}} onClick={() => handleSort('volume')}>Volume{sortIndicator('volume')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedGroups.map(g => {
-              const chasePen = (g.bankStats['Chase']?.adjC || 0) / g.totalRetailJan;
-              const bofaPen = (g.bankStats['Bank of America']?.adjC || 0) / g.totalRetailJan;
-              const santPen = (g.bankStats['Santander']?.adjC || 0) / g.totalRetailJan;
-              const penDropBig = g.penDelta < -2;
-              return (
-                <tr key={g.name} style={{ borderBottom: '1px solid rgba(51,51,51,0.4)', background: g.name === DEALER_GROUP ? 'rgba(204,255,0,0.04)' : 'transparent' }}>
-                  <td style={{...tdStyle, fontWeight: g.name === DEALER_GROUP ? 700 : 500}}>{g.name}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{g.rooftops}</td>
-                  <td style={{...tdStyle, textAlign: 'right', fontWeight: 600}}>{fmtPct(g.penetration)}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{fmtPct(chasePen)}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{fmtPct(bofaPen)}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{fmtPct(santPen)}</td>
-                  <td style={{...tdStyle, textAlign: 'right', color: penDropBig ? 'var(--negative)' : (g.penDelta >= 0 ? 'var(--positive)' : 'var(--text-secondary)'), fontWeight: penDropBig ? 700 : 400}}>
-                    {g.penDelta >= 0 ? '+' : ''}{g.penDelta.toFixed(1)}pp
-                  </td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{fmtNum(g.totalC)}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>{fmtK(g.totalV)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ─── Anomaly Flags ─── */}
-      {anomalies.length > 0 && (
-        <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' }}>
-          <SectionTitle subtitle="Automated alerts based on month-over-month group performance">Anomaly Flags</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {anomalies.map((a, i) => {
-              const isRed = a.severity === 'red';
-              const bg = isRed ? 'rgba(248,113,113,0.08)' : 'rgba(251,191,36,0.08)';
-              const border = isRed ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.2)';
-              const iconColor = isRed ? 'var(--negative)' : 'var(--warning)';
-              return (
-                <div key={i} className="anomaly-flag" style={{ background: bg, border: `1px solid ${border}` }}>
-                  <span style={{ color: iconColor, flexShrink: 0, marginTop: '1px' }}><IconAlert /></span>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '3px' }}>{a.msg}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Suggested action: {a.action}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VIEW: BANK DETAIL
+// VIEW: BANK DETAIL (preserved)
 // ═══════════════════════════════════════════════════════════════════════════════
 function BankDetailView({ bank, theme }) {
   const cc = chartC(theme);
@@ -1235,7 +888,7 @@ function BankDetailView({ bank, theme }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VIEW: DEALER REPORT
+// VIEW: DEALER REPORT (preserved)
 // ═══════════════════════════════════════════════════════════════════════════════
 function DealerReportView({ theme }) {
   const cc = chartC(theme);
@@ -1319,233 +972,57 @@ function DealerReportView({ theme }) {
   );
 }
 
-// ═══ NEW VIEWS AND APP BELOW ═══
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// COMPONENT: BestPracticesSidebar
-// ═══════════════════════════════════════════════════════════════════════════════
-function BestPracticesSidebar({ allStats }) {
-  const top2 = allStats.slice(0, 2);
-  const blurbs = [
-    "Consistent lender engagement across all rooftops with dedicated F&I training program",
-    "Strong BofA relationship with highest per-dealer contract volume in the network"
-  ];
-  return (
-    <div style={{ marginTop: '32px' }}>
-      <div style={{ background: 'linear-gradient(135deg, rgba(204,255,0,0.06), rgba(0,212,255,0.04))', borderRadius: '14px', padding: '24px', border: '1px solid rgba(204,255,0,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '1.2rem' }}>&#9733;</span>
-          <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>Top Performer Spotlight</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {top2.map((g, i) => (
-            <div key={g.name} style={{ background: 'var(--bg-surface-2)', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>#{i + 1} {g.name}</span>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent)' }}>{fmtPct(g.penetration)}</span>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>{blurbs[i]}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VIEW: DEALER RANKING (ESPN-style standings)
-// ═══════════════════════════════════════════════════════════════════════════════
-function DealerRankingView({ excludeSubvented, selectedGroup, role }) {
-  const allStats = DEALER_GROUPS.map(g => computeGroupStats(g, excludeSubvented)).sort((a, b) => b.penetration - a.penetration);
-  allStats.forEach((g, i) => g.rank = i + 1);
-
-  const totalExcluded = allStats.reduce((s, g) => s + g.excludedCount, 0);
-
-  // Determine which groups to show
-  const isFiltered = role === 'groupManager' || role === 'storeManager';
-  const displayStats = isFiltered ? allStats.filter(g => g.name === selectedGroup) : allStats;
-
-  return (
-    <div>
-      {excludeSubvented && totalExcluded > 0 && (
-        <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '10px', padding: '10px 16px', marginBottom: '16px', fontSize: '0.8rem', color: 'var(--warning)' }}>
-          Subvented deals excluded — {totalExcluded} deals across all groups
-        </div>
-      )}
-
-      {displayStats.map(g => {
-        const aboveTarget = g.penetration >= 0.15;
-        return (
-          <div key={g.name} className="ranking-card" style={{ background: 'var(--bg-surface)', borderRadius: '16px', padding: '24px', border: '1px solid var(--border)', marginBottom: '16px' }}>
-            {/* Header: Rank + Group Name */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)' }}>
-                #{g.rank} of {allStats.length}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{g.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{g.rooftops} rooftops</div>
-              </div>
-            </div>
-
-            {/* Big Penetration Number */}
-            <div style={{ marginBottom: '20px' }}>
-              <div className="ranking-number" style={{ fontSize: '2.8rem', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                {fmtPct(g.penetration)}
-              </div>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>
-                Penetration
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontSize: '0.8rem', fontWeight: 600, color: aboveTarget ? 'var(--positive)' : 'var(--negative)' }}>
-                {aboveTarget ? <IconArrowUp /> : <IconArrowDown />}
-                {aboveTarget ? 'Above' : 'Below'} 15% target
-              </div>
-            </div>
-
-            {/* Excluded deals note */}
-            {excludeSubvented && g.excludedCount > 0 && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '12px' }}>
-                ({g.excludedCount} deals excluded)
-              </div>
-            )}
-
-            {/* Per-Bank Tier Cards */}
-            {Object.entries(g.bankStats).map(([bankName, bs]) => {
-              const tier = bs.tier;
-              const projTier = bs.projectedTier;
-              const isTopTier = tier.next === null;
-              const projectedBetter = projTier.tierIndex > tier.tierIndex;
-
-              return (
-                <div key={bankName} style={{ background: 'var(--bg-surface-2)', borderRadius: '10px', padding: '16px', marginTop: '12px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '8px' }}>{bankName}</div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span>Tier {tier.tierIndex + 1} of {tier.totalTiers} · {fmt(tier.currentPayout)}/contract</span>
-                  </div>
-
-                  {!isTopTier && tier.next && (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                      Next: Tier {tier.tierIndex + 2} · {fmt(tier.nextPayout)}
-                    </div>
-                  )}
-                  {isTopTier && (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--positive)', fontWeight: 600, marginTop: '4px' }}>
-                      Top Tier Achieved
-                    </div>
-                  )}
-
-                  {/* Progress Bar */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                    <div className="tier-progress-bar" style={{ flex: 1 }}>
-                      <div className="tier-progress-fill" style={{ width: `${Math.round(bs.progress * 100)}%` }} />
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', minWidth: '36px', textAlign: 'right' }}>
-                      {Math.round(bs.progress * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Projection Line */}
-                  <div style={{ fontSize: '0.78rem', marginTop: '8px', color: projectedBetter ? 'var(--positive)' : 'var(--text-secondary)' }}>
-                    Projected: {fmtK(bs.projectedMonthV * 12)} {projectedBetter ? (
-                      <span style={{ fontWeight: 600 }}>&#8593; Tier {projTier.tierIndex + 1}</span>
-                    ) : (
-                      <span>&#8594; Tier {projTier.tierIndex + 1}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-
-      {/* Best Practices Sidebar at Bottom */}
-      <BestPracticesSidebar allStats={allStats} />
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// APP COMPONENT
+// MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════════
 function App() {
-  const [activeView, setActiveView] = useState('ranking');
+  const [activeView, setActiveView] = useState('myDealer');
   const [selectedBank, setSelectedBank] = useState(null);
   const [selectedDealer, setSelectedDealer] = useState('Dealer #1');
   const [theme, setTheme] = useState('dark');
-  const [role, setRole] = useState('admin');
-  const [selectedGroup, setSelectedGroup] = useState('DEALER Motor Group');
-  const [excludeSubvented, setExcludeSubvented] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
+  const navSections = [
+    { heading: null, items: [
+      { id: 'myDealer', label: 'My Dealership', icon: <IconStore /> },
+      { id: 'yourMoney', label: 'Your Money', icon: <IconWallet /> },
+    ]},
+    { heading: 'GROUP', items: [
+      { id: 'overview', label: 'Overview', icon: <IconChart /> },
+      { id: 'fi-economics', label: 'F&I Economics', icon: <IconLayers /> },
+      { id: 'dealers', label: 'Dealer Report', icon: <IconUsers /> },
+    ]},
+    { heading: 'LENDERS', items: BANK_DATA.map(b => ({ id: `bank-${b.name}`, label: b.name })) },
+  ];
+
+  const handleNav = (id) => {
+    setActiveView(id);
+    if (id.startsWith('bank-')) {
+      setSelectedBank(BANK_DATA.find(b => b.name === id.replace('bank-', '')));
+    }
+  };
+
   const viewTitles = {
-    ranking: { title: 'Dealer Rankings', sub: 'Lender penetration standings across all dealer groups' },
-    myDealer: { title: role === 'storeManager' ? 'My Store' : 'My Dealership', sub: role === 'storeManager' ? `${selectedDealer} — your lender activity` : `${selectedDealer} — lender activity and earnings` },
-    yourMoney: { title: 'Your Money', sub: 'Tier-based earnings and opportunity analysis' },
-    overview: { title: 'Group Overview', sub: `${DEALER_GROUP} — ${REPORT_PERIOD} performance summary` },
-    fiEconomics: { title: 'F&I Economics', sub: 'Per-deal finance reserve and margin analysis' },
-    dealerReport: { title: 'Dealer Report', sub: 'Rooftop-level performance across all lenders' },
+    myDealer: { title: 'My Dealership', sub: `${selectedDealer} — ${REPORT_PERIOD}` },
+    yourMoney: { title: 'Your Money', sub: `${DEALER_GROUP} — Incentive earnings & tier opportunity` },
+    overview: { title: 'Portfolio Overview', sub: `${DEALER_GROUP} — ${REPORT_PERIOD} vs. ${PREV_PERIOD}` },
+    'fi-economics': { title: 'F&I Economics', sub: 'Per-deal profitability analysis by lender' },
+    dealers: { title: 'Dealer Report', sub: 'Cross-bank performance by rooftop' },
   };
-
-  // Nav items by role
-  const navItems = useMemo(() => {
-    if (role === 'admin') {
-      return [
-        { id: 'ranking', label: 'Ranking', icon: <IconTarget /> },
-        { id: 'myDealer', label: 'My Dealership', icon: <IconStore /> },
-        { id: 'yourMoney', label: 'Your Money', icon: <IconWallet /> },
-        { type: 'divider', label: 'GROUP' },
-        { id: 'overview', label: 'Overview', icon: <IconChart /> },
-        { id: 'fiEconomics', label: 'F&I Economics', icon: <IconLayers /> },
-        { id: 'dealerReport', label: 'Dealer Report', icon: <IconUsers /> },
-        { type: 'divider', label: 'LENDERS' },
-        ...BANK_DATA.map(b => ({ id: `bank-${b.name}`, label: b.name, icon: <IconDollar />, bank: b })),
-      ];
-    }
-    if (role === 'groupManager') {
-      // Group Manager: sees ranking among peers + all stores in their group + earnings
-      return [
-        { id: 'ranking', label: 'Ranking', icon: <IconTarget /> },
-        { id: 'myDealer', label: 'My Dealership', icon: <IconStore /> },
-        { id: 'yourMoney', label: 'Your Money', icon: <IconWallet /> },
-      ];
-    }
-    // Store Manager: sees ranking context + their single store only
-    return [
-      { id: 'ranking', label: 'Ranking', icon: <IconTarget /> },
-      { id: 'myDealer', label: 'My Store', icon: <IconStore /> },
-    ];
-  }, [role]);
-
-  const handleNav = (item) => {
-    if (item.bank) {
-      setSelectedBank(item.bank);
-      setActiveView('bankDetail');
-    } else {
-      setActiveView(item.id);
-      setSelectedBank(null);
-    }
-  };
-
-  const currentTitle = selectedBank
-    ? { title: selectedBank.name, sub: `Dealer-level performance and tier progress — ${REPORT_PERIOD}` }
-    : (viewTitles[activeView] || { title: '', sub: '' });
-
-  const selectStyle = { background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', fontFamily: 'Inter', fontSize: '0.85rem', cursor: 'pointer', outline: 'none' };
+  const vt = viewTitles[activeView] || (selectedBank ? { title: selectedBank.name, sub: `${REPORT_PERIOD} performance detail` } : { title: '', sub: '' });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* ─── Sidebar ─── */}
-      <aside style={{ width: '240px', background: 'var(--bg-surface)', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
-        {/* Logo */}
-        <div style={{ padding: '0 8px 20px', borderBottom: '1px solid var(--border)', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <svg style={{ height: '28px', width: 'auto' }} viewBox="0 0 1000 221.66" xmlns="http://www.w3.org/2000/svg">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <header style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg style={{ height: '36px', width: 'auto' }} viewBox="0 0 1000 221.66" xmlns="http://www.w3.org/2000/svg">
               <rect x=".19" y="118.22" width="998.49" height="18.63" fill="#cf0"/>
               <path d="M51.69,0h33.37c35.56,0,51.69,19.39,51.69,48.88v63.54h-38.29v-21.18h-60.17v21.18H0v-63.54C0,19.39,16.14,0,51.69,0ZM38.29,58.65h60.17v-9.77c0-6.52-3.28-13.03-13.54-13.03h-33.1c-10.26,0-13.54,6.52-13.54,13.03v9.77Z" fill="currentColor"/>
               <path d="M252.32,24.44v87.98h-63.45c-32,0-46.63-17.6-46.63-43.99V24.44h35.56v43.99c0,5.86,3.15,13.03,12.45,13.03h26.53V24.44h35.56Z" fill="currentColor"/>
@@ -1575,97 +1052,79 @@ function App() {
               <path d="M881.27,188.52c0-21.6,14.53-34.04,30.85-34.04,8.46,0,15.23,3.78,19.71,8.46l-8.16,9.36c-3.18-2.99-6.57-4.48-11.15-4.48-8.56,0-15.42,7.56-15.42,20.1s6.07,20.4,15.13,20.4c5.28,0,9.36-2.09,12.44-5.37l8.06,9.16c-5.67,6.47-12.84,9.55-21,9.55-16.52,0-30.45-11.25-30.45-33.14Z" fill="currentColor"/>
               <path d="M958,155.68h41v12.94h-25.48v12.14h21.8v12.94h-21.8v13.83h26.47v12.94h-42v-64.79Z" fill="currentColor"/>
             </svg>
+            <div style={{ width: '1px', height: '28px', background: 'var(--border)' }} />
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.3 }}>Lender<br/>Performance</div>
           </div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '6px' }}>Lender Performance</div>
-        </div>
-
-        {navItems.map((item, i) => {
-          if (item.type === 'divider') {
-            return (
-              <div key={item.label} style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '16px 8px 6px' }}>
-                {item.label}
-              </div>
-            );
-          }
-          const isActive = item.bank ? (activeView === 'bankDetail' && selectedBank?.name === item.bank.name) : activeView === item.id;
-          return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginRight: '8px' }}>{DEALER_GROUP}</span>
+            <span style={{ background: 'var(--accent-dim)', color: 'var(--accent)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600 }}>{REPORT_PERIOD}</span>
             <button
-              key={item.id}
-              onClick={() => handleNav(item)}
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '10px 12px', borderRadius: '8px', border: 'none',
-                background: isActive ? 'var(--accent-dim)' : 'transparent',
-                color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                fontFamily: 'Inter', fontSize: '0.85rem', fontWeight: isActive ? 600 : 400,
-                cursor: 'pointer', width: '100%', textAlign: 'left',
-                transition: 'all 0.15s ease',
+                background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: '8px',
+                padding: '6px 8px', cursor: 'pointer', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s ease', marginLeft: '4px',
               }}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          );
-        })}
-      </aside>
-
-      {/* ─── Main Content ─── */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
-        {/* Header Bar */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 10 }}>
-          <div>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.01em' }}>{currentTitle.title}</h1>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '1px' }}>{currentTitle.sub}</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Role Selector */}
-            <select value={role} onChange={e => setRole(e.target.value)} style={selectStyle}>
-              <option value="admin">AutoTrust Admin</option>
-              <option value="groupManager">Group Manager</option>
-              <option value="storeManager">Store Manager</option>
-            </select>
-
-            {/* Group Selector (non-admin only) */}
-            {role !== 'admin' && (
-              <select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} style={selectStyle}>
-                {DEALER_GROUPS.map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
-              </select>
-            )}
-
-            {/* Store Selector (storeManager only) */}
-            {role === 'storeManager' && (
-              <select value={selectedDealer} onChange={e => setSelectedDealer(e.target.value)} style={selectStyle}>
-                {DEALER_NAMES.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            )}
-
-            {/* Subvention Toggle */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={excludeSubvented} onChange={e => setExcludeSubvented(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
-              Exclude Subvented
-            </label>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-              style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
               {theme === 'dark' ? <IconSun /> : <IconMoon />}
             </button>
           </div>
-        </header>
-
-        {/* Content */}
-        <div style={{ padding: '32px' }}>
-          {activeView === 'ranking' && <DealerRankingView excludeSubvented={excludeSubvented} selectedGroup={selectedGroup} role={role} />}
-          {activeView === 'myDealer' && <MyDealershipView selectedDealer={selectedDealer} onDealerChange={setSelectedDealer} theme={theme} role={role} />}
-          {activeView === 'yourMoney' && <YourMoneyView theme={theme} />}
-          {activeView === 'overview' && <OverviewView theme={theme} excludeSubvented={excludeSubvented} />}
-          {activeView === 'fiEconomics' && <FIEconomicsView theme={theme} />}
-          {activeView === 'dealerReport' && <DealerReportView theme={theme} />}
-          {activeView === 'bankDetail' && selectedBank && <BankDetailView bank={selectedBank} theme={theme} />}
         </div>
-      </main>
+      </header>
+
+      <div style={{ display: 'flex', flex: 1, maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        {/* Sidebar */}
+        <nav style={{ width: '210px', flexShrink: 0, borderRight: '1px solid var(--border)', padding: '16px 0', position: 'sticky', top: '64px', height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
+          {navSections.map((section, si) => (
+            <div key={si} style={{ marginBottom: '8px' }}>
+              {section.heading && (
+                <div style={{ padding: '12px 24px 4px', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{section.heading}</div>
+              )}
+              {section.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNav(item.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 24px',
+                    border: 'none', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeView === item.id ? 600 : 400,
+                    color: activeView === item.id ? 'var(--accent)' : 'var(--text-secondary)',
+                    background: activeView === item.id ? 'var(--accent-dim)' : 'transparent',
+                    borderLeft: activeView === item.id ? '2px solid var(--accent)' : '2px solid transparent',
+                    fontFamily: 'Inter', transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={e => { if (activeView !== item.id) { e.target.style.background = 'var(--bg-surface-2)'; e.target.style.color = 'var(--text-primary)'; } }}
+                  onMouseLeave={e => { if (activeView !== item.id) { e.target.style.background = 'transparent'; e.target.style.color = 'var(--text-secondary)'; } }}
+                >
+                  {item.icon && <span style={{ flexShrink: 0, opacity: 0.7 }}>{item.icon}</span>}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '32px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em' }}>{vt.title}</h1>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{vt.sub}</p>
+          </div>
+          {activeView === 'myDealer' && <MyDealershipView selectedDealer={selectedDealer} onDealerChange={setSelectedDealer} theme={theme} />}
+          {activeView === 'yourMoney' && <YourMoneyView theme={theme} />}
+          {activeView === 'overview' && <OverviewView theme={theme} />}
+          {activeView === 'fi-economics' && <FIEconomicsView theme={theme} />}
+          {activeView.startsWith('bank-') && selectedBank && <BankDetailView bank={selectedBank} theme={theme} />}
+          {activeView === 'dealers' && <DealerReportView theme={theme} />}
+        </main>
+      </div>
+
+      <footer style={{ borderTop: '1px solid var(--border)', padding: '16px 32px', textAlign: 'center' }}>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>AutoTrust Dealer Alliance — Lender Performance Dashboard — Data sourced from StoneEagle Metrics — Confidential</span>
+      </footer>
     </div>
   );
 }
